@@ -49,7 +49,7 @@ for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
 const PILL_INTERVALS = {
   Metadex:  30,
   Seroquel: 90,
-  Viapax:   90,
+  Viepax:   90,
   Clonex:   90
 };
 
