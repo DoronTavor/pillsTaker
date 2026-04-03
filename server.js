@@ -46,12 +46,12 @@ for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const PILL_INTERVALS = {
-  Metadex:  30,
-  Seroquel: 90,
-  Viepax:   90,
-  Clonex:   90
-};
+const PILL_INTERVALS = {};
+for (let i = 1; i <= 4; i++) {
+  const name     = process.env[`PILL${i}_NAME`];
+  const interval = parseInt(process.env[`PILL${i}_INTERVAL`] || '30', 10);
+  if (name) PILL_INTERVALS[name] = interval;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -173,6 +173,12 @@ cron.schedule('0 9 * * *', async () => {
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Pills config (names + intervals) — used by frontend
+app.get('/api/pills', (_req, res) => {
+  const pills = Object.entries(PILL_INTERVALS).map(([name, interval]) => ({ name, interval }));
+  res.json(pills);
+});
 
 // Status
 app.get('/api/status', (_req, res) => res.json(getStatus()));

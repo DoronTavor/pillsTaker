@@ -100,10 +100,10 @@
       border-radius: 18px 18px 0 0;
     }
 
-    .pill-card[data-pill="Metadex"]::before  { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-    .pill-card[data-pill="Seroquel"]::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-    .pill-card[data-pill="Viepax"]::before   { background: linear-gradient(90deg, #14b8a6, #34d399); }
-    .pill-card[data-pill="Clonex"]::before   { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .pill-card[data-idx="0"]::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .pill-card[data-idx="1"]::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+    .pill-card[data-idx="2"]::before { background: linear-gradient(90deg, #14b8a6, #34d399); }
+    .pill-card[data-idx="3"]::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
 
     .pill-card:hover {
       border-color: var(--border2);
@@ -128,10 +128,10 @@
       flex-shrink: 0;
     }
 
-    .pill-card[data-pill="Metadex"]  .pill-icon { background: rgba(59,130,246,0.18); }
-    .pill-card[data-pill="Seroquel"] .pill-icon { background: rgba(139,92,246,0.18); }
-    .pill-card[data-pill="Viepax"]   .pill-icon { background: rgba(20,184,166,0.18); }
-    .pill-card[data-pill="Clonex"]   .pill-icon { background: rgba(245,158,11,0.18); }
+    .pill-card[data-idx="0"] .pill-icon { background: rgba(59,130,246,0.18); }
+    .pill-card[data-idx="1"] .pill-icon { background: rgba(139,92,246,0.18); }
+    .pill-card[data-idx="2"] .pill-icon { background: rgba(20,184,166,0.18); }
+    .pill-card[data-idx="3"] .pill-icon { background: rgba(245,158,11,0.18); }
 
     .pill-name     { font-size: 1.15rem; font-weight: 700; color: #f1f5f9; }
     .pill-interval { font-size: 0.73rem; color: var(--dim); margin-top: 3px; }
@@ -514,12 +514,12 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const PILLS = [
-      { name: 'Metadex',  icon: '💙', intervalLabel: 'Every 30 days' },
-      { name: 'Seroquel', icon: '💜', intervalLabel: 'Every 3 months' },
-      { name: 'Viepax',   icon: '💚', intervalLabel: 'Every 3 months' },
-      { name: 'Clonex',   icon: '🟠', intervalLabel: 'Every 3 months' },
-    ];
+    const ICONS = ['💙', '💜', '💚', '🟠'];
+    let PILLS = [];
+
+    function intervalLabel(days) {
+      return days === 30 ? 'Every 30 days' : `Every ${Math.round(days / 30)} months`;
+    }
 
     // ── Utils ────────────────────────────────────────────────────────────────
 
@@ -554,6 +554,7 @@
     // ── API ──────────────────────────────────────────────────────────────────
 
     const api = {
+      pills:        ()                       => fetch('/api/pills').then(r => r.json()),
       status:       ()                       => fetch('/api/status').then(r => r.json()),
       settings:     ()                       => fetch('/api/settings').then(r => r.json()),
       saveSettings: (body)                   => fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json()),
@@ -657,7 +658,7 @@
         </div>`;
     }
 
-    function renderCard(pill, status) {
+    function renderCard(pill, status, idx) {
       const { name, icon, intervalLabel } = pill;
       const info = status[name];
       const b = badge(info.nextPickup);
@@ -667,6 +668,7 @@
       const card = document.createElement('div');
       card.className = 'pill-card';
       card.dataset.pill = name;
+      card.dataset.idx = idx;
 
       card.innerHTML = `
         <div class="pill-header">
@@ -777,14 +779,24 @@
       const status = await api.status();
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
-      for (const pill of PILLS) {
-        grid.appendChild(renderCard(pill, status));
-      }
+      PILLS.forEach((pill, idx) => {
+        grid.appendChild(renderCard(pill, status, idx));
+      });
     }
 
     // ── Init ─────────────────────────────────────────────────────────────────
-    loadSettings();
-    renderAll();
+    async function init() {
+      const pillsData = await api.pills();
+      PILLS = pillsData.map((p, i) => ({
+        name: p.name,
+        icon: ICONS[i] || '💊',
+        intervalLabel: intervalLabel(p.interval)
+      }));
+      loadSettings();
+      renderAll();
+    }
+
+    init();
   </script>
 </body>
 </html>
