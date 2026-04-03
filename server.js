@@ -6,7 +6,8 @@ const twilio = require('twilio');
 const path = require('path');
 
 const app = express();
-const db = new Database('pills.db');
+const dbPath = process.env.DB_PATH || 'pills.db';
+const db = new Database(dbPath);
 
 // ─── DB Setup ────────────────────────────────────────────────────────────────
 
