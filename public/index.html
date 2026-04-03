@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pills Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0b1120;
+      --surface:   #141e30;
+      --card:      #1a2640;
+      --border:    #263352;
+      --border2:   #2e3f63;
+      --text:      #e8edf5;
+      --muted:     #8496b0;
+      --dim:       #4a5a78;
+      --blue:      #3b82f6;
+      --blue-dark: #1d3a8a;
+      --purple:    #8b5cf6;
+      --teal:      #14b8a6;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --green:     #22c55e;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 16px 64px;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header-icon {
+      font-size: 2.4rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+
+    /* ── Layout ── */
+    .max-w { max-width: 1100px; margin: 0 auto; }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 14px;
+    }
+
+    /* ── Pills grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    /* ── Card ── */
+    .pill-card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 22px;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pill-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 18px 18px 0 0;
+    }
+
+    .pill-card[data-pill="Metadex"]::before  { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .pill-card[data-pill="Seroquel"]::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+    .pill-card[data-pill="Viapax"]::before   { background: linear-gradient(90deg, #14b8a6, #34d399); }
+    .pill-card[data-pill="Clonex"]::before   { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+    .pill-card:hover {
+      border-color: var(--border2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .pill-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .pill-icon {
+      width: 46px; height: 46px;
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    .pill-card[data-pill="Metadex"]  .pill-icon { background: rgba(59,130,246,0.18); }
+    .pill-card[data-pill="Seroquel"] .pill-icon { background: rgba(139,92,246,0.18); }
+    .pill-card[data-pill="Viapax"]   .pill-icon { background: rgba(20,184,166,0.18); }
+    .pill-card[data-pill="Clonex"]   .pill-icon { background: rgba(245,158,11,0.18); }
+
+    .pill-name     { font-size: 1.15rem; font-weight: 700; color: #f1f5f9; }
+    .pill-interval { font-size: 0.73rem; color: var(--dim); margin-top: 3px; }
+
+    /* ── Status block ── */
+    .status-block {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+
+    .status-label {
+      font-size: 0.72rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .status-value {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .status-value.none { color: var(--dim); font-weight: 400; font-style: italic; }
+    .next-date         { font-size: 0.95rem; font-weight: 700; }
+
+    .sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-overdue { background: rgba(239,68,68,0.15);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-today   { background: rgba(245,158,11,0.18); color: #fde68a; border: 1px solid rgba(245,158,11,0.35); }
+    .badge-soon    { background: rgba(245,158,11,0.12); color: #fdba74; border: 1px solid rgba(245,158,11,0.25); }
+    .badge-ok      { background: rgba(34,197,94,0.1);   color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+    .badge-none    { background: transparent;           color: var(--dim); border: 1px solid var(--border); }
+
+    /* ── Inputs / Buttons ── */
+    .input-group { display: flex; gap: 8px; }
+
+    input[type="date"], input[type="text"], input[type="tel"], input[type="number"] {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 9px 12px;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+
+    input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(0.6) brightness(1.2);
+      cursor: pointer;
+    }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 9px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .btn:hover   { opacity: 0.88; }
+    .btn:active  { transform: scale(0.96); }
+
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-ghost   { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--card); color: var(--text); }
+    .btn-danger  { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); opacity: 1; }
+    .btn-sm      { padding: 4px 10px; font-size: 0.75rem; border-radius: 6px; }
+    .btn-green   { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.25); }
+    .btn-green:hover { background: rgba(34,197,94,0.25); opacity: 1; }
+
+    /* ── History ── */
+    .history-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 7px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      border-radius: 9px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .history-toggle:hover { background: rgba(255,255,255,0.04); color: var(--muted); }
+
+    .history-panel { display: none; margin-top: 10px; }
+    .history-panel.open { display: block; }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 4px;
+      font-size: 0.82rem;
+    }
+
+    .history-item .date { color: var(--text); font-weight: 500; }
+    .history-empty { color: var(--dim); font-size: 0.82rem; padding: 6px 0; text-align: center; }
+
+    /* ── Settings panel ── */
+    .settings-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .settings-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .twilio-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .twilio-ok  { background: rgba(34,197,94,0.12); color: #86efac; border: 1px solid rgba(34,197,94,0.25); }
+    .twilio-err { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 560px) { .settings-grid { grid-template-columns: 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 0.75rem; font-weight: 600; color: var(--muted); letter-spacing: 0.05em; }
+    .field-hint  { font-size: 0.72rem; color: var(--dim); margin-top: 4px; }
+
+    .settings-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* ── SMS Log ── */
+    .sms-log-section { margin-top: 20px; }
+    .sms-log-toggle {
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--dim);
+      border-radius: 9px;
+      padding: 7px 14px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sms-log-toggle:hover { border-color: var(--border2); color: var(--muted); }
+    .sms-log-panel { display: none; margin-top: 10px; }
+    .sms-log-panel.open { display: block; }
+    .sms-log-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 6px 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+    }
+    .sms-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(90px);
+      background: var(--card);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      padding: 11px 22px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+      z-index: 200;
+      white-space: nowrap;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+
+    .toast.show  { transform: translateX(-50%) translateY(0); }
+    .toast.error { border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+    .toast.success { border-color: rgba(34,197,94,0.4); color: #86efac; }
+  </style>
+</head>
+<body>
+  <div class="max-w">
+
+    <div class="header">
+      <span class="header-icon">💊</span>
+      <h1>Pills Tracker</h1>
+      <p class="subtitle">Never miss a pharmacy pickup</p>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings-panel" id="settings-panel">
+      <div class="settings-header">
+        <div class="settings-title">
+          📲 SMS Notifications
+          <span class="twilio-status twilio-err" id="twilio-badge">● Not configured</span>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="field">
+          <label>YOUR PHONE NUMBER</label>
+          <input type="tel" id="phone-input" placeholder="+972501234567" />
+          <span class="field-hint">International format, e.g. +972501234567</span>
+        </div>
+        <div class="field">
+          <label>NOTIFY ME (DAYS BEFORE DUE DATE)</label>
+          <input type="number" id="notify-days-input" min="1" max="30" value="3" />
+          <span class="field-hint">Also notified on the day itself</span>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+        <button class="btn btn-green" onclick="testSms()">Send Test SMS</button>
+        <button class="btn btn-ghost" onclick="runNotifyNow()">Run Check Now</button>
+      </div>
+
+      <div class="sms-log-section">
+        <button class="sms-log-toggle" onclick="toggleSmsLog()">Show SMS history ▾</button>
+        <div class="sms-log-panel" id="sms-log-panel"></div>
+      </div>
+    </div>
+
+    <!-- Pills grid -->
+    <div class="section-label">PICKUP SCHEDULE</div>
+    <div class="grid" id="grid"></div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const PILLS = [
+      { name: 'Metadex',  icon: '💙', intervalLabel: 'Every 30 days' },
+      { name: 'Seroquel', icon: '💜', intervalLabel: 'Every 3 months' },
+      { name: 'Viapax',   icon: '💚', intervalLabel: 'Every 3 months' },
+      { name: 'Clonex',   icon: '🟠', intervalLabel: 'Every 3 months' },
+    ];
+
+    // ── Utils ────────────────────────────────────────────────────────────────
+
+    function fmt(iso) {
+      if (!iso) return null;
+      const [y, m, d] = iso.split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    function daysUntil(iso) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      return Math.round((new Date(iso) - today) / 86400000);
+    }
+
+    function badge(nextPickup) {
+      if (!nextPickup) return { cls: 'badge-none', dot: '○', text: 'No date set' };
+      const d = daysUntil(nextPickup);
+      if (d < 0)  return { cls: 'badge-overdue', dot: '●', text: `Overdue ${Math.abs(d)}d` };
+      if (d === 0) return { cls: 'badge-today',  dot: '●', text: 'Due today!' };
+      if (d <= 7) return { cls: 'badge-soon',    dot: '●', text: `Due in ${d}d` };
+      return { cls: 'badge-ok', dot: '●', text: `${d} days left` };
+    }
+
+    function toast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast ${type} show`;
+      clearTimeout(t._t);
+      t._t = setTimeout(() => { t.className = `toast ${type}`; }, 3200);
+    }
+
+    // ── API ──────────────────────────────────────────────────────────────────
+
+    const api = {
+      status:    ()           => fetch('/api/status').then(r => r.json()),
+      settings:  ()           => fetch('/api/settings').then(r => r.json()),
+      saveSettings: (body)    => fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json()),
+      history:   (pill)       => fetch(`/api/history/${pill}`).then(r => r.json()),
+      pickup:    (pill, date) => fetch('/api/pickup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pill, date}) }).then(r => r.json()),
+      del:       (id)         => fetch(`/api/pickup/${id}`, { method:'DELETE' }).then(r => r.json()),
+      testSms:   ()           => fetch('/api/notify/test', { method:'POST' }).then(r => r.json()),
+      runCheck:  ()           => fetch('/api/notify/run', { method:'POST' }).then(r => r.json()),
+    };
+
+    // ── Settings ─────────────────────────────────────────────────────────────
+
+    async function loadSettings() {
+      const s = await api.settings();
+      document.getElementById('phone-input').value = s.phone_number || '';
+      document.getElementById('notify-days-input').value = s.notify_days_before || 3;
+      const badge = document.getElementById('twilio-badge');
+      if (s.twilio_configured) {
+        badge.textContent = '● Twilio connected';
+        badge.className = 'twilio-status twilio-ok';
+      } else {
+        badge.textContent = '● Add credentials to .env';
+        badge.className = 'twilio-status twilio-err';
+      }
+    }
+
+    async function saveSettings() {
+      const phone = document.getElementById('phone-input').value.trim();
+      const days  = document.getElementById('notify-days-input').value;
+      const res = await api.saveSettings({ phone_number: phone, notify_days_before: days });
+      if (res.success) toast('Settings saved!', 'success');
+      else toast(res.error || 'Failed to save', 'error');
+    }
+
+    async function testSms() {
+      const res = await api.testSms();
+      if (res.success) toast('Test SMS sent!', 'success');
+      else toast(res.error || 'Failed to send SMS', 'error');
+    }
+
+    async function runNotifyNow() {
+      const res = await api.runCheck();
+      if (res.error) { toast(res.error, 'error'); return; }
+      const sent = res.results?.filter(r => r.status === 'sent').map(r => r.pill);
+      if (sent?.length) toast(`SMS sent for: ${sent.join(', ')}`, 'success');
+      else toast('No notifications needed right now', '');
+    }
+
+    async function toggleSmsLog() {
+      const panel = document.getElementById('sms-log-panel');
+      const btn = panel.previousElementSibling;
+      if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        btn.textContent = 'Show SMS history ▾';
+        return;
+      }
+      const res = await fetch('/api/status'); // reuse DB connection via status
+      // Fetch SMS log via a quick inline call
+      const logRes = await fetch('/api/sms-log');
+      if (logRes.ok) {
+        const logs = await logRes.json();
+        if (!logs.length) {
+          panel.innerHTML = '<div class="history-empty">No SMS sent yet.</div>';
+        } else {
+          panel.innerHTML = logs.map(l => `
+            <div class="sms-log-item">
+              <span class="sms-dot"></span>
+              <span>${l.pill_name} — triggered ${l.trigger_date}</span>
+              <span style="color:var(--dim);font-size:0.72rem">${l.sent_at?.split('T')[0] || ''}</span>
+            </div>
+          `).join('');
+        }
+      }
+      panel.classList.add('open');
+      btn.textContent = 'Hide SMS history ▴';
+    }
+
+    // ── Cards ─────────────────────────────────────────────────────────────────
+
+    function renderCard(pill, status) {
+      const { name, icon, intervalLabel } = pill;
+      const info = status[name];
+      const b = badge(info.nextPickup);
+      const today = new Date().toISOString().split('T')[0];
+
+      const card = document.createElement('div');
+      card.className = 'pill-card';
+      card.dataset.pill = name;
+
+      card.innerHTML = `
+        <div class="pill-header">
+          <div class="pill-icon">${icon}</div>
+          <div>
+            <div class="pill-name">${name}</div>
+            <div class="pill-interval">${intervalLabel}</div>
+          </div>
+        </div>
+
+        <div class="status-block">
+          <div class="status-row">
+            <span class="status-label">Last pickup</span>
+            <span class="status-value ${!info.lastPickup ? 'none' : ''}">${info.lastPickup ? fmt(info.lastPickup) : 'No record yet'}</span>
+          </div>
+          <hr class="sep" />
+          <div class="status-row">
+            <span class="status-label">Next pickup</span>
+            <span class="status-value next-date ${!info.nextPickup ? 'none' : ''}">${info.nextPickup ? fmt(info.nextPickup) : '—'}</span>
+          </div>
+          <div class="status-row" style="margin-top:10px">
+            <span></span>
+            <span class="badge ${b.cls}"><span>${b.dot}</span>${b.text}</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <input type="date" id="date-${name}" value="${today}" max="${today}" />
+          <button class="btn btn-primary" onclick="handlePickup('${name}')">Record</button>
+        </div>
+
+        <button class="history-toggle" onclick="toggleHistory('${name}')">
+          <span>📋</span> Pickup history
+        </button>
+        <div class="history-panel" id="history-${name}"></div>
+      `;
+
+      return card;
+    }
+
+    async function toggleHistory(pill) {
+      const panel = document.getElementById(`history-${pill}`);
+      const btn = panel.previousElementSibling;
+      if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        btn.innerHTML = '<span>📋</span> Pickup history';
+        return;
+      }
+      const history = await api.history(pill);
+      panel.innerHTML = history.length
+        ? history.map(h => `
+            <div class="history-item">
+              <span class="date">${fmt(h.pickup_date)}</span>
+              <button class="btn btn-sm btn-danger" onclick="handleDelete(${h.id},'${pill}')">Remove</button>
+            </div>`).join('')
+        : '<div class="history-empty">No pickups recorded yet.</div>';
+      panel.classList.add('open');
+      btn.innerHTML = '<span>📋</span> Hide history ▴';
+    }
+
+    async function handlePickup(pill) {
+      const input = document.getElementById(`date-${pill}`);
+      const date = input.value;
+      if (!date) { toast('Please select a date', 'error'); return; }
+      const res = await api.pickup(pill, date);
+      if (res.error) toast(res.error, 'error');
+      else { toast(`${pill} pickup recorded!`, 'success'); await renderAll(); }
+    }
+
+    async function handleDelete(id, pill) {
+      await api.del(id);
+      toast('Record removed', '');
+      await renderAll();
+      // Re-open history
+      const panel = document.getElementById(`history-${pill}`);
+      if (panel) await toggleHistory(pill);
+    }
+
+    async function renderAll() {
+      const status = await api.status();
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (const pill of PILLS) {
+        grid.appendChild(renderCard(pill, status));
+      }
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    loadSettings();
+    renderAll();
+  </script>
+</body>
+</html>
