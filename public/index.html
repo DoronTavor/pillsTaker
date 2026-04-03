@@ -361,6 +361,81 @@
     }
     .sms-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
 
+    /* ── Supply block ── */
+    .supply-block {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+
+    .supply-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    .supply-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .supply-inputs .field label { font-size: 0.7rem; }
+    .supply-inputs input { padding: 7px 10px; font-size: 0.85rem; }
+
+    .supply-result {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 8px;
+    }
+
+    .supply-result-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .supply-days {
+      font-size: 1.4rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .supply-days.low    { color: #fca5a5; }
+    .supply-days.medium { color: #fdba74; }
+    .supply-days.ok     { color: #86efac; }
+
+    .supply-runout {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .supply-save-btn {
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      border-radius: 7px;
+      border: none;
+      background: var(--blue);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .supply-save-btn:hover  { opacity: 0.85; }
+    .supply-save-btn:active { transform: scale(0.96); }
+
     /* ── Toast ── */
     .toast {
       position: fixed;
@@ -477,14 +552,15 @@
     // ── API ──────────────────────────────────────────────────────────────────
 
     const api = {
-      status:    ()           => fetch('/api/status').then(r => r.json()),
-      settings:  ()           => fetch('/api/settings').then(r => r.json()),
-      saveSettings: (body)    => fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json()),
-      history:   (pill)       => fetch(`/api/history/${pill}`).then(r => r.json()),
-      pickup:    (pill, date) => fetch('/api/pickup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pill, date}) }).then(r => r.json()),
-      del:       (id)         => fetch(`/api/pickup/${id}`, { method:'DELETE' }).then(r => r.json()),
-      testSms:   ()           => fetch('/api/notify/test', { method:'POST' }).then(r => r.json()),
-      runCheck:  ()           => fetch('/api/notify/run', { method:'POST' }).then(r => r.json()),
+      status:       ()                       => fetch('/api/status').then(r => r.json()),
+      settings:     ()                       => fetch('/api/settings').then(r => r.json()),
+      saveSettings: (body)                   => fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json()),
+      history:      (pill)                   => fetch(`/api/history/${pill}`).then(r => r.json()),
+      pickup:       (pill, date)             => fetch('/api/pickup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pill, date}) }).then(r => r.json()),
+      del:          (id)                     => fetch(`/api/pickup/${id}`, { method:'DELETE' }).then(r => r.json()),
+      testSms:      ()                       => fetch('/api/notify/test', { method:'POST' }).then(r => r.json()),
+      runCheck:     ()                       => fetch('/api/notify/run', { method:'POST' }).then(r => r.json()),
+      saveSupply:   (pill, count, dose)      => fetch(`/api/supply/${pill}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ current_count: count, daily_dose: dose }) }).then(r => r.json()),
     };
 
     // ── Settings ─────────────────────────────────────────────────────────────
@@ -556,10 +632,34 @@
 
     // ── Cards ─────────────────────────────────────────────────────────────────
 
+    function supplyDaysClass(days) {
+      if (days <= 7)  return 'low';
+      if (days <= 14) return 'medium';
+      return 'ok';
+    }
+
+    function renderSupplyResult(supply) {
+      if (supply.daysRemaining === null) {
+        return `<div class="supply-runout" style="color:var(--dim);font-style:italic">Enter stock above to see estimate</div>`;
+      }
+      const cls = supplyDaysClass(supply.daysRemaining);
+      return `
+        <div class="supply-result">
+          <div class="supply-result-main">
+            <span class="supply-days ${cls}">${supply.daysRemaining} days</span>
+            <span class="supply-runout">Runs out: ${fmt(supply.runsOutDate)}</span>
+          </div>
+          <span class="badge ${cls === 'ok' ? 'badge-ok' : cls === 'medium' ? 'badge-soon' : 'badge-overdue'}">
+            ${cls === 'ok' ? '● Good stock' : cls === 'medium' ? '● Running low' : '● Very low!'}
+          </span>
+        </div>`;
+    }
+
     function renderCard(pill, status) {
       const { name, icon, intervalLabel } = pill;
       const info = status[name];
       const b = badge(info.nextPickup);
+      const s = info.supply;
       const today = new Date().toISOString().split('T')[0];
 
       const card = document.createElement('div');
@@ -591,9 +691,25 @@
           </div>
         </div>
 
+        <div class="supply-block">
+          <div class="supply-title">📦 Current Stock</div>
+          <div class="supply-inputs">
+            <div class="field">
+              <label>PILLS IN HAND</label>
+              <input type="number" id="count-${name}" min="0" step="1" placeholder="e.g. 60" value="${s.currentCount ?? ''}" />
+            </div>
+            <div class="field">
+              <label>PILLS PER DAY</label>
+              <input type="number" id="dose-${name}" min="0.25" step="0.25" placeholder="e.g. 1" value="${s.dailyDose ?? ''}" />
+            </div>
+          </div>
+          <button class="supply-save-btn" onclick="handleSaveSupply('${name}')">Update Stock</button>
+          <div id="supply-result-${name}">${renderSupplyResult(s)}</div>
+        </div>
+
         <div class="input-group">
           <input type="date" id="date-${name}" value="${today}" max="${today}" />
-          <button class="btn btn-primary" onclick="handlePickup('${name}')">Record</button>
+          <button class="btn btn-primary" onclick="handlePickup('${name}')">Record Pickup</button>
         </div>
 
         <button class="history-toggle" onclick="toggleHistory('${name}')">
@@ -603,6 +719,18 @@
       `;
 
       return card;
+    }
+
+    async function handleSaveSupply(pill) {
+      const count = parseFloat(document.getElementById(`count-${pill}`).value);
+      const dose  = parseFloat(document.getElementById(`dose-${pill}`).value);
+      if (isNaN(count) || isNaN(dose) || dose <= 0) {
+        toast('Enter valid stock and dose values', 'error'); return;
+      }
+      const res = await api.saveSupply(pill, count, dose);
+      if (res.error) { toast(res.error, 'error'); return; }
+      document.getElementById(`supply-result-${pill}`).innerHTML = renderSupplyResult(res.supply);
+      toast(`${pill} stock updated!`, 'success');
     }
 
     async function toggleHistory(pill) {

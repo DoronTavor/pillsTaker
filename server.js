@@ -30,6 +30,12 @@ db.exec(`
     trigger_date TEXT NOT NULL,
     sent_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS pill_supply (
+    pill_name TEXT PRIMARY KEY,
+    current_count REAL NOT NULL DEFAULT 0,
+    daily_dose    REAL NOT NULL DEFAULT 1
+  );
 `);
 
 // Default settings
@@ -63,17 +69,32 @@ function getNextPickup(pillName) {
   return d.toISOString().split('T')[0];
 }
 
+function getSupply(pillName) {
+  const row = db.prepare(`SELECT current_count, daily_dose FROM pill_supply WHERE pill_name = ?`).get(pillName);
+  if (!row || !row.daily_dose) return { currentCount: null, dailyDose: null, daysRemaining: null, runsOutDate: null };
+  const daysRemaining = Math.floor(row.current_count / row.daily_dose);
+  const runsOut = new Date();
+  runsOut.setDate(runsOut.getDate() + daysRemaining);
+  return {
+    currentCount:  row.current_count,
+    dailyDose:     row.daily_dose,
+    daysRemaining,
+    runsOutDate:   runsOut.toISOString().split('T')[0]
+  };
+}
+
 function getStatus() {
   const result = {};
   for (const pill of Object.keys(PILL_INTERVALS)) {
     const latest = db.prepare(
       `SELECT pickup_date FROM pickups WHERE pill_name = ? ORDER BY pickup_date DESC LIMIT 1`
     ).get(pill);
+    const supply = getSupply(pill);
     if (latest) {
       const next = getNextPickup(pill);
-      result[pill] = { lastPickup: latest.pickup_date, nextPickup: next, intervalDays: PILL_INTERVALS[pill] };
+      result[pill] = { lastPickup: latest.pickup_date, nextPickup: next, intervalDays: PILL_INTERVALS[pill], supply };
     } else {
-      result[pill] = { lastPickup: null, nextPickup: null, intervalDays: PILL_INTERVALS[pill] };
+      result[pill] = { lastPickup: null, nextPickup: null, intervalDays: PILL_INTERVALS[pill], supply };
     }
   }
   return result;
@@ -201,6 +222,30 @@ app.post('/api/pickup', (req, res) => {
 app.delete('/api/pickup/:id', (req, res) => {
   db.prepare(`DELETE FROM pickups WHERE id = ?`).run(req.params.id);
   res.json({ success: true });
+});
+
+// Get supply for all pills
+app.get('/api/supply', (_req, res) => {
+  const result = {};
+  for (const pill of Object.keys(PILL_INTERVALS)) result[pill] = getSupply(pill);
+  res.json(result);
+});
+
+// Update supply for a pill
+app.post('/api/supply/:pill', (req, res) => {
+  const { pill } = req.params;
+  if (!PILL_INTERVALS[pill]) return res.status(400).json({ error: 'Unknown pill' });
+  const { current_count, daily_dose } = req.body;
+  if (current_count === undefined || daily_dose === undefined)
+    return res.status(400).json({ error: 'current_count and daily_dose are required' });
+  const count = Math.max(0, parseFloat(current_count));
+  const dose  = Math.max(0.25, parseFloat(daily_dose));
+  db.prepare(`
+    INSERT INTO pill_supply (pill_name, current_count, daily_dose)
+    VALUES (?, ?, ?)
+    ON CONFLICT(pill_name) DO UPDATE SET current_count = excluded.current_count, daily_dose = excluded.daily_dose
+  `).run(pill, count, dose);
+  res.json({ success: true, supply: getSupply(pill) });
 });
 
 // SMS send log
